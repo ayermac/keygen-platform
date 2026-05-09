@@ -21,6 +21,7 @@ env/
 # Node
 node_modules/
 frontend/dist/
+frontend/package-lock.json
 
 # Docker
 docker-compose.override.yml
@@ -32,3 +33,9 @@ alembic/versions/*.pyc
 .pytest_cache/
 htmlcov/
 .coverage
+
+# macOS
+.DS_Store
+
+# Claude Code
+.omc/
