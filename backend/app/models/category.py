@@ -16,7 +16,7 @@ class Category(Base):
     score_label: Mapped[str] = mapped_column(String(50), nullable=False, default="积分")
     max_activations: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     expiry_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    api_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    api_key: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
