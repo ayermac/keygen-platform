@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ActivateRequest(BaseModel):
@@ -19,7 +19,7 @@ class ActivateResponse(BaseModel):
 
 class DeductRequest(BaseModel):
     key_code: str
-    amount: int
+    amount: int = Field(gt=0, description="扣减数量，必须大于 0")
     metadata: dict[str, Any] | None = None
 
 
