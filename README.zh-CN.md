@@ -99,6 +99,13 @@ docker compose up -d
 
 ## API 文档
 
+| 类型 | 地址 | 说明 |
+|------|------|------|
+| Web API 文档 | [/docs/api](http://localhost/docs/api) | 交互式 API 文档页面（无需登录） |
+| Agent 文档 | [/api/v1/agent-docs](http://localhost/api/v1/agent-docs) | 纯文本 API 文档，适合 AI Agent 接入 |
+| Swagger UI | [:8000/docs](http://localhost:8000/docs) | 自动生成的 OpenAPI 文档 |
+| ReDoc | [:8000/redoc](http://localhost:8000/redoc) | 备选 OpenAPI 文档 |
+
 ### 认证方式
 
 **C端接口（业务集成）** — 请求头携带 API Key：
@@ -284,7 +291,28 @@ APP_DEBUG=true
 
 ## 部署指南
 
-### Docker Compose（推荐）
+### 一键部署（推荐）
+
+```bash
+# 生产部署：自动备份、拉取代码、构建、健康检查
+./scripts/deploy.sh
+
+# 跳过数据库备份
+./scripts/deploy.sh --skip-backup
+
+# 跳过健康检查
+./scripts/deploy.sh --skip-health
+```
+
+部署脚本会自动执行：
+1. 检查 `.env` 配置（拒绝默认密钥）
+2. 备份 MySQL 数据库到 `backups/` 目录
+3. 从 `main` 分支拉取最新代码
+4. 构建并重启所有容器
+5. 等待健康检查通过
+6. 输出服务访问地址
+
+### 手动 Docker Compose
 
 ```bash
 # 生产部署

@@ -97,6 +97,15 @@ docker compose up -d
 | Swagger Docs | http://localhost:8000/docs | — |
 | ReDoc | http://localhost:8000/redoc | — |
 
+## API Documentation
+
+| Type | URL | Description |
+|------|-----|-------------|
+| Web API Docs | [/docs/api](http://localhost/docs/api) | Interactive documentation page (no auth required) |
+| Agent-Friendly | [/api/v1/agent-docs](http://localhost/api/v1/agent-docs) | Plain text API docs for AI agents |
+| Swagger UI | [:8000/docs](http://localhost:8000/docs) | Auto-generated OpenAPI docs |
+| ReDoc | [:8000/redoc](http://localhost:8000/redoc) | Alternative OpenAPI docs |
+
 ## API Reference
 
 ### Authentication
@@ -284,7 +293,28 @@ APP_DEBUG=true
 
 ## Deployment
 
-### Docker Compose (Recommended)
+### Production Deploy (Recommended)
+
+```bash
+# One-command deploy with backup, health check, and status report
+./scripts/deploy.sh
+
+# Skip database backup
+./scripts/deploy.sh --skip-backup
+
+# Skip health check
+./scripts/deploy.sh --skip-health
+```
+
+The deploy script will:
+1. Verify `.env` is configured (not default secrets)
+2. Backup MySQL database to `backups/`
+3. Pull latest code from `main`
+4. Build and restart all containers
+5. Wait for health check to pass
+6. Print service URLs
+
+### Manual Docker Compose
 
 ```bash
 # Production deployment
