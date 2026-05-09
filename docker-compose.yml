@@ -28,8 +28,10 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   mysql:
     image: mysql:8.0
@@ -42,6 +44,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me_in_production}
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine
