@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, String, Integer, DateTime, func
+from sqlalchemy import BigInteger, String, Integer, DateTime, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 
-class Category(Base):
+class Product(Base):
     __tablename__ = "category"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -17,6 +17,7 @@ class Category(Base):
     max_activations: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     expiry_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     api_key: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    card_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )
@@ -24,4 +25,4 @@ class Category(Base):
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    activation_keys = relationship("ActivationKey", back_populates="category")
+    redemption_codes = relationship("RedemptionCode", back_populates="product")

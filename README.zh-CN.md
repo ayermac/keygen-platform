@@ -2,7 +2,7 @@
 
 # Keygen Platform
 
-**通用激活码生成与管理服务平台**
+**通用兑换码生成与管理服务平台**
 
 [English](README.md) | 中文
 
@@ -14,7 +14,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-生产级激活码生成、校验与管理平台，内置积分系统、多渠道支持和实时数据分析。
+生产级兑换码生成、校验与管理平台，内置额度系统、多产品支持和实时数据分析。
 
 [快速开始](#快速开始) | [API 文档](#api-文档) | [系统架构](#系统架构) | [部署指南](#部署指南) | [配置说明](#配置说明)
 
@@ -24,14 +24,14 @@
 
 ## 功能特性
 
-- **激活码管理** — 批量生成分段式激活码（`XXXX-XXXX-XXXX-XXXX`），支持配置积分和有效期
-- **校验与激活** — 通过 REST API 校验并激活激活码，操作原子化
-- **积分系统** — 基于 Redis 原子计数器的积分扣减、查询与管理
-- **多渠道隔离** — 通过分类隔离不同业务渠道，每个分类独立 API Key 和配置
-- **实时数据分析** — 管理看板，包含总览统计、7 日趋势和分类维度分析
+- **兑换码管理** — 批量生成分段式兑换码（`XXXX-XXXX-XXXX-XXXX`），支持配置额度和有效期
+- **校验与兑换** — 通过 REST API 校验并兑换兑换码，操作原子化
+- **额度系统** — 基于 Redis 原子计数器的额度消耗、查询与管理
+- **多产品隔离** — 通过产品隔离不同业务渠道，每个产品独立 API Key 和配置
+- **实时数据分析** — 管理看板，包含总览统计、7 日趋势和产品维度分析
 - **审计追踪** — 完整的操作日志和管理员审计记录
 - **双模认证** — C端业务使用 API Key 鉴权，B端管理后台使用 JWT 认证
-- **高性能** — Redis 缓存 + 分布式锁，支持并发安全的积分扣减
+- **高性能** — Redis 缓存 + 分布式锁，支持并发安全的额度消耗
 - **一键部署** — Docker Compose + Nginx 反向代理
 
 ## 系统架构
@@ -62,7 +62,7 @@
 | 前端 | Vue 3 + TypeScript + Element Plus | 管理后台 SPA |
 | 后端 | FastAPI + SQLAlchemy (异步) | 高性能 REST API |
 | 数据库 | MySQL 8.0 | 持久化存储 |
-| 缓存 | Redis 7 | 积分缓存、分布式锁 |
+| 缓存 | Redis 7 | 额度缓存、分布式锁 |
 | 代理 | Nginx | 静态文件服务 + API 路由 |
 | 部署 | Docker Compose | 容器编排 |
 
@@ -104,7 +104,7 @@ docker compose up -d
 **C端接口（业务集成）** — 请求头携带 API Key：
 
 ```http
-X-API-Key: <分类的 API Key>
+X-API-Key: <产品的 API Key>
 ```
 
 **B端管理接口（管理员）** — 登录后获取 JWT Token：
@@ -117,15 +117,15 @@ Authorization: Bearer <jwt-token>
 
 > 所有 C端接口均使用 `POST` 方法，避免敏感数据暴露在 URL 中。
 
-#### 激活码激活
+#### 兑换码兑换
 
 ```http
-POST /api/v1/keys/activate
+POST /api/v1/codes/redeem
 Content-Type: application/json
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8",
+  "code": "A1B2-C3D4-E5F6-G7H8",
   "metadata": {
     "username": "user123",
     "channel": "mobile",
@@ -138,29 +138,26 @@ X-API-Key: <key>
 
 ```json
 {
-  "success": true,
+  "code": 0,
+  "message": "success",
   "data": {
-    "key_code": "A1B2-C3D4-E5F6-G7H8",
-    "total_score": 100,
-    "remaining_score": 100,
-    "expires_at": "2026-06-09T00:00:00",
-    "category": {
-      "id": 1,
-      "name": "游戏积分卡",
-      "score_label": "积分"
-    }
+    "code": "A1B2-C3D4-E5F6-G7H8",
+    "credit_unit": "credits",
+    "total_credits": 100,
+    "remaining_credits": 100,
+    "expires_at": "2026-06-09T00:00:00"
   }
 }
 ```
 
-#### 积分扣减
+#### 额度消耗
 
 ```http
-POST /api/v1/keys/deduct
+POST /api/v1/codes/consume
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8",
+  "code": "A1B2-C3D4-E5F6-G7H8",
   "amount": 10,
   "metadata": {
     "order_id": "ORD-20260509",
@@ -172,11 +169,11 @@ X-API-Key: <key>
 #### 查询余额
 
 ```http
-POST /api/v1/keys/balance
+POST /api/v1/codes/balance
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8"
+  "code": "A1B2-C3D4-E5F6-G7H8"
 }
 ```
 
@@ -194,25 +191,25 @@ POST /api/v1/admin/login
 </details>
 
 <details>
-<summary><strong>分类管理</strong></summary>
+<summary><strong>产品管理</strong></summary>
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET` | `/api/v1/admin/categories` | 获取分类列表 |
-| `POST` | `/api/v1/admin/categories` | 创建分类 |
-| `PUT` | `/api/v1/admin/categories/{id}` | 更新分类 |
-| `DELETE` | `/api/v1/admin/categories/{id}` | 删除分类 |
+| `GET` | `/api/v1/admin/products` | 获取产品列表 |
+| `POST` | `/api/v1/admin/products` | 创建产品 |
+| `PUT` | `/api/v1/admin/products/{id}` | 更新产品 |
+| `DELETE` | `/api/v1/admin/products/{id}` | 删除产品 |
 
 </details>
 
 <details>
-<summary><strong>激活码管理</strong></summary>
+<summary><strong>兑换码管理</strong></summary>
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST` | `/api/v1/admin/keys/generate` | 批量生成激活码 |
-| `GET` | `/api/v1/admin/keys` | 激活码列表（支持筛选） |
-| `GET` | `/api/v1/admin/keys/{id}` | 激活码详情 |
+| `POST` | `/api/v1/admin/codes/generate` | 批量生成兑换码 |
+| `GET` | `/api/v1/admin/codes` | 兑换码列表（支持筛选） |
+| `PUT` | `/api/v1/admin/codes/{id}/disable` | 禁用兑换码 |
 
 </details>
 
@@ -222,7 +219,7 @@ POST /api/v1/admin/login
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/api/v1/admin/stats/overview` | 数据总览 |
-| `GET` | `/api/v1/admin/stats/categories` | 分类统计（含 7 日趋势） |
+| `GET` | `/api/v1/admin/stats/product/{id}` | 产品统计（含 7 日趋势） |
 | `GET` | `/api/v1/admin/usage-logs` | 使用日志（支持筛选） |
 | `GET` | `/api/v1/admin/audit-logs` | 管理员审计日志 |
 
@@ -230,28 +227,27 @@ POST /api/v1/admin/login
 
 ## 数据模型
 
-### 分类（Category）
+### 产品（Product）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `name` | VARCHAR(100) | 分类名称 |
+| `name` | VARCHAR(100) | 产品名称 |
 | `code` | VARCHAR(50) | 唯一标识码 |
-| `score_per_key` | INT | 每个激活码的积分值 |
-| `score_label` | VARCHAR(50) | 积分标签（如"积分"、"次数"） |
-| `max_activations` | INT | 单码最大激活次数（1 = 一次性） |
-| `expiry_days` | INT | 激活后有效天数（NULL = 永不过期） |
-| `api_key` | VARCHAR(64) | 该分类的唯一 API Key |
+| `default_credits` | INT | 每个兑换码的默认额度 |
+| `credit_unit` | VARCHAR(50) | 额度单位（如"积分"、"次数"） |
+| `expiry_days` | INT | 兑换后有效天数（NULL = 永不过期） |
+| `api_key` | VARCHAR(64) | 该产品的唯一 API Key |
 
-### 激活码（Activation Key）
+### 兑换码（Redemption Code）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `key_code` | VARCHAR(19) | `XXXX-XXXX-XXXX-XXXX` 格式 |
-| `category_id` | FK | 关联分类 |
+| `code` | VARCHAR(19) | `XXXX-XXXX-XXXX-XXXX` 格式 |
+| `product_id` | FK | 关联产品 |
 | `status` | ENUM | `unused` / `activated` / `expired` / `disabled` |
 | `batch_id` | VARCHAR(50) | 批次号 |
-| `total_score` | INT | 初始积分（来自分类配置） |
-| `remaining_score` | INT | 当前剩余积分 |
+| `total_credits` | INT | 初始额度（来自产品配置） |
+| `remaining_credits` | INT | 当前剩余额度 |
 | `expires_at` | DATETIME | 过期时间（懒加载判断） |
 | `metadata` | JSON | 扩展字段 |
 
@@ -321,31 +317,31 @@ keygen-platform/
 ├── backend/
 │   ├── app/
 │   │   ├── models/              # SQLAlchemy ORM 模型
-│   │   │   ├── category.py
-│   │   │   ├── activation_key.py
-│   │   │   ├── activation_log.py
+│   │   │   ├── product.py
+│   │   │   ├── redemption_code.py
+│   │   │   ├── usage_log.py
 │   │   │   ├── admin_user.py
 │   │   │   └── audit_log.py
 │   │   ├── schemas/             # Pydantic 请求/响应模型
-│   │   │   ├── key.py
-│   │   │   ├── category.py
+│   │   │   ├── code.py
+│   │   │   ├── product.py
 │   │   │   └── admin.py
 │   │   ├── routers/             # API 路由处理器
-│   │   │   ├── api_keys.py      # C端：激活、扣减、余额
+│   │   │   ├── client_codes.py  # C端：兑换、消耗、余额
 │   │   │   ├── admin_auth.py    # B端：登录
-│   │   │   ├── admin_categories.py
-│   │   │   ├── admin_keys.py
+│   │   │   ├── admin_products.py
+│   │   │   ├── admin_codes.py
 │   │   │   ├── admin_stats.py
 │   │   │   ├── admin_usage_logs.py
 │   │   │   └── admin_audit.py
 │   │   ├── services/            # 业务逻辑层
-│   │   │   ├── key_service.py   # 核心：激活、扣减、余额、生成
+│   │   │   ├── code_service.py  # 核心：兑换、消耗、余额、生成
 │   │   │   └── stats_service.py # 看板数据分析
 │   │   ├── middleware/          # 认证中间件
 │   │   │   ├── api_key_auth.py  # X-API-Key 校验
 │   │   │   └── jwt_auth.py      # JWT + bcrypt
 │   │   ├── utils/               # 工具函数
-│   │   │   ├── key_generator.py # 激活码生成（XXXX-XXXX-XXXX-XXXX）
+│   │   │   ├── key_generator.py # 兑换码生成（XXXX-XXXX-XXXX-XXXX）
 │   │   │   └── response.py      # 统一 API 响应格式
 │   │   ├── config.py            # Pydantic Settings 配置
 │   │   ├── database.py          # 异步 SQLAlchemy 引擎
@@ -363,10 +359,11 @@ keygen-platform/
 │   │       ├── Login.vue
 │   │       ├── Layout.vue
 │   │       ├── Dashboard.vue
-│   │       ├── Categories.vue
+│   │       ├── Products.vue
 │   │       ├── Keys.vue
 │   │       ├── UsageLogs.vue
-│   │       └── AuditLogs.vue
+│   │       ├── AuditLogs.vue
+│   │       └── ApiDocs.vue
 │   ├── Dockerfile
 │   └── nginx.conf
 ├── docs/

@@ -3,70 +3,70 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.activation_key import ActivationKey
-from app.models.activation_log import ActivationLog
-from app.models.category import Category
+from app.models.redemption_code import RedemptionCode
+from app.models.usage_log import UsageLog
+from app.models.product import Product
 
 
 async def get_overview(db: AsyncSession) -> dict:
-    total_result = await db.execute(select(func.count(ActivationKey.id)))
-    total_keys = total_result.scalar() or 0
+    total_result = await db.execute(select(func.count(RedemptionCode.id)))
+    total_codes = total_result.scalar() or 0
 
     activated_result = await db.execute(
-        select(func.count(ActivationKey.id)).where(ActivationKey.status == "activated")
+        select(func.count(RedemptionCode.id)).where(RedemptionCode.status == "activated")
     )
-    activated_keys = activated_result.scalar() or 0
+    activated_codes = activated_result.scalar() or 0
 
     consumed_result = await db.execute(
-        select(func.sum(ActivationLog.amount)).where(ActivationLog.action == "deduct")
+        select(func.sum(UsageLog.amount)).where(UsageLog.action == "deduct")
     )
-    total_score_consumed = consumed_result.scalar() or 0
+    total_credits_consumed = consumed_result.scalar() or 0
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     today_result = await db.execute(
-        select(func.count(ActivationLog.id))
-        .where(ActivationLog.action == "activate")
-        .where(ActivationLog.created_at >= today_start)
+        select(func.count(UsageLog.id))
+        .where(UsageLog.action == "activate")
+        .where(UsageLog.created_at >= today_start)
     )
-    today_activations = today_result.scalar() or 0
+    today_redemptions = today_result.scalar() or 0
 
     return {
-        "total_keys": total_keys,
-        "activated_keys": activated_keys,
-        "total_score_consumed": total_score_consumed,
-        "today_activations": today_activations,
+        "total_codes": total_codes,
+        "activated_codes": activated_codes,
+        "total_credits_consumed": total_credits_consumed,
+        "today_redemptions": today_redemptions,
     }
 
 
-async def get_category_stats(db: AsyncSession, category_id: int) -> dict:
-    cat_result = await db.execute(select(Category).where(Category.id == category_id))
-    category = cat_result.scalar_one_or_none()
-    if not category:
-        raise Exception("分类不存在")
+async def get_product_stats(db: AsyncSession, product_id: int) -> dict:
+    prod_result = await db.execute(select(Product).where(Product.id == product_id))
+    product = prod_result.scalar_one_or_none()
+    if not product:
+        raise Exception("产品不存在")
 
     total_result = await db.execute(
-        select(func.count(ActivationKey.id)).where(ActivationKey.category_id == category_id)
+        select(func.count(RedemptionCode.id)).where(RedemptionCode.category_id == product_id)
     )
-    total_keys = total_result.scalar() or 0
+    total_codes = total_result.scalar() or 0
 
     activated_result = await db.execute(
-        select(func.count(ActivationKey.id))
-        .where(ActivationKey.category_id == category_id)
-        .where(ActivationKey.status == "activated")
+        select(func.count(RedemptionCode.id))
+        .where(RedemptionCode.category_id == product_id)
+        .where(RedemptionCode.status == "activated")
     )
-    activated_keys = activated_result.scalar() or 0
+    activated_codes = activated_result.scalar() or 0
 
-    total_score_result = await db.execute(
-        select(func.sum(ActivationKey.total_score)).where(ActivationKey.category_id == category_id)
+    total_credits_result = await db.execute(
+        select(func.sum(RedemptionCode.total_score)).where(RedemptionCode.category_id == product_id)
     )
-    total_score = total_score_result.scalar() or 0
+    total_credits = total_credits_result.scalar() or 0
 
     consumed_result = await db.execute(
-        select(func.sum(ActivationLog.amount))
-        .where(ActivationLog.category_id == category_id)
-        .where(ActivationLog.action == "deduct")
+        select(func.sum(UsageLog.amount))
+        .where(UsageLog.category_id == product_id)
+        .where(UsageLog.action == "deduct")
     )
-    consumed_score = consumed_result.scalar() or 0
+    consumed_credits = consumed_result.scalar() or 0
 
     # 7-day trend
     trend = []
@@ -76,20 +76,20 @@ async def get_category_stats(db: AsyncSession, category_id: int) -> dict:
         )
         day_end = day_start + timedelta(days=1)
         count_result = await db.execute(
-            select(func.count(ActivationLog.id))
-            .where(ActivationLog.category_id == category_id)
-            .where(ActivationLog.action == "activate")
-            .where(ActivationLog.created_at >= day_start)
-            .where(ActivationLog.created_at < day_end)
+            select(func.count(UsageLog.id))
+            .where(UsageLog.category_id == product_id)
+            .where(UsageLog.action == "activate")
+            .where(UsageLog.created_at >= day_start)
+            .where(UsageLog.created_at < day_end)
         )
         trend.append({"date": day_start.strftime("%Y-%m-%d"), "count": count_result.scalar() or 0})
 
     return {
-        "category_id": category_id,
-        "category_name": category.name,
-        "total_keys": total_keys,
-        "activated_keys": activated_keys,
-        "total_score": total_score,
-        "consumed_score": consumed_score,
-        "activation_trend": trend,
+        "product_id": product_id,
+        "product_name": product.name,
+        "total_codes": total_codes,
+        "activated_codes": activated_codes,
+        "total_credits": total_credits,
+        "consumed_credits": consumed_credits,
+        "redemption_trend": trend,
     }

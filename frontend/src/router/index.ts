@@ -10,6 +10,12 @@ const router = createRouter({
       component: () => import('../views/Login.vue'),
     },
     {
+      path: '/docs/api',
+      name: 'ApiDocs',
+      component: () => import('../views/ApiDocs.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/',
       component: () => import('../views/Layout.vue'),
       redirect: '/dashboard',
@@ -21,16 +27,16 @@ const router = createRouter({
           meta: { title: '数据看板' },
         },
         {
-          path: 'categories',
-          name: 'Categories',
-          component: () => import('../views/Categories.vue'),
-          meta: { title: '分类管理' },
+          path: 'products',
+          name: 'Products',
+          component: () => import('../views/Products.vue'),
+          meta: { title: '产品管理' },
         },
         {
-          path: 'keys',
-          name: 'Keys',
-          component: () => import('../views/Keys.vue'),
-          meta: { title: '激活码管理' },
+          path: 'codes',
+          name: 'Codes',
+          component: () => import('../views/Codes.vue'),
+          meta: { title: '兑换码管理' },
         },
         {
           path: 'usage-logs',
@@ -51,7 +57,7 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
-  if (to.path !== '/login' && !authStore.token) {
+  if ((to.path !== '/login' && !to.meta.public) && !authStore.token) {
     next('/login')
   } else {
     next()

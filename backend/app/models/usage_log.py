@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-class ActivationLog(Base):
+class UsageLog(Base):
     __tablename__ = "activation_log"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -23,4 +23,4 @@ class ActivationLog(Base):
         DateTime, nullable=False, server_default=func.now()
     )
 
-    activation_key = relationship("ActivationKey", back_populates="logs")
+    redemption_code = relationship("RedemptionCode", back_populates="logs")

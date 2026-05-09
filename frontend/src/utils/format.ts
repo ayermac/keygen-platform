@@ -5,8 +5,8 @@ export function formatDateTime(iso: string | null): string {
 
 export function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    unused: '未使用',
-    activated: '已激活',
+    unused: '未兑换',
+    activated: '已兑换',
     expired: '已过期',
     disabled: '已禁用',
   }

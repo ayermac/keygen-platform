@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-class ActivationKey(Base):
+class RedemptionCode(Base):
     __tablename__ = "activation_key"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -18,8 +18,10 @@ class ActivationKey(Base):
         default="unused",
     )
     batch_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    card_type_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     total_score: Mapped[int] = mapped_column(Integer, nullable=False)
     remaining_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    expiry_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -27,5 +29,5 @@ class ActivationKey(Base):
     )
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
 
-    category = relationship("Category", back_populates="activation_keys")
-    logs = relationship("ActivationLog", back_populates="activation_key")
+    product = relationship("Product", back_populates="redemption_codes")
+    logs = relationship("UsageLog", back_populates="redemption_code")

@@ -2,7 +2,7 @@
 
 # Keygen Platform
 
-**Universal Activation Code Generation & Management Service**
+**Universal Redemption Code Generation & Management Service**
 
 English | [中文](README.zh-CN.md)
 
@@ -14,7 +14,7 @@ English | [中文](README.zh-CN.md)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A production-ready platform for generating, verifying, and managing activation codes with built-in score management, multi-channel support, and real-time analytics.
+A production-ready platform for generating, verifying, and managing redemption codes with built-in credit management, multi-product support, and real-time analytics.
 
 [Quick Start](#quick-start) | [API Reference](#api-reference) | [Architecture](#architecture) | [Deployment](#deployment) | [Configuration](#configuration)
 
@@ -24,14 +24,14 @@ A production-ready platform for generating, verifying, and managing activation c
 
 ## Features
 
-- **Activation Code Management** — Batch generate segmented codes (`XXXX-XXXX-XXXX-XXXX`) with configurable score and expiry
-- **Code Verification & Activation** — Validate and activate codes via REST API with atomic operations
-- **Score System** — Deduct, query, and manage scores with Redis-backed atomic counters
-- **Multi-Channel Support** — Isolate business channels via categories, each with its own API key and configuration
-- **Real-Time Analytics** — Dashboard with overview stats, 7-day trends, and per-category breakdowns
+- **Redemption Code Management** — Batch generate segmented codes (`XXXX-XXXX-XXXX-XXXX`) with configurable credits and expiry
+- **Code Verification & Redemption** — Validate and redeem codes via REST API with atomic operations
+- **Credit System** — Consume, query, and manage credits with Redis-backed atomic counters
+- **Multi-Product Support** — Isolate products via API keys, each with its own configuration
+- **Real-Time Analytics** — Dashboard with overview stats, 7-day trends, and per-product breakdowns
 - **Audit Trail** — Full operation logging and admin audit history
 - **Dual Authentication** — API Key for service integration, JWT for admin portal
-- **High Performance** — Redis caching with distributed locks for concurrent-safe score deduction
+- **High Performance** — Redis caching with distributed locks for concurrent-safe credit consumption
 - **One-Click Deploy** — Docker Compose with Nginx reverse proxy
 
 ## Architecture
@@ -62,7 +62,7 @@ A production-ready platform for generating, verifying, and managing activation c
 | Frontend | Vue 3 + TypeScript + Element Plus | Admin dashboard SPA |
 | Backend | FastAPI + SQLAlchemy (async) | High-performance REST API |
 | Database | MySQL 8.0 | Persistent storage |
-| Cache | Redis 7 | Score cache, distributed locks |
+| Cache | Redis 7 | Credit cache, distributed locks |
 | Proxy | Nginx | Static serving + API routing |
 | Deploy | Docker Compose | Container orchestration |
 
@@ -104,7 +104,7 @@ docker compose up -d
 **C-End (Service Integration)** — Pass API key in request header:
 
 ```http
-X-API-Key: <your-category-api-key>
+X-API-Key: <your-product-api-key>
 ```
 
 **B-End (Admin)** — JWT bearer token after login:
@@ -117,15 +117,15 @@ Authorization: Bearer <jwt-token>
 
 > All C-End endpoints use `POST` to avoid sensitive data exposure in URLs.
 
-#### Activate Code
+#### Redeem Code
 
 ```http
-POST /api/v1/keys/activate
+POST /api/v1/codes/redeem
 Content-Type: application/json
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8",
+  "code": "A1B2-C3D4-E5F6-G7H8",
   "metadata": {
     "username": "user123",
     "channel": "mobile",
@@ -138,29 +138,26 @@ X-API-Key: <key>
 
 ```json
 {
-  "success": true,
+  "code": 0,
+  "message": "success",
   "data": {
-    "key_code": "A1B2-C3D4-E5F6-G7H8",
-    "total_score": 100,
-    "remaining_score": 100,
-    "expires_at": "2026-06-09T00:00:00",
-    "category": {
-      "id": 1,
-      "name": "Game Credits",
-      "score_label": "credits"
-    }
+    "code": "A1B2-C3D4-E5F6-G7H8",
+    "credit_unit": "credits",
+    "total_credits": 100,
+    "remaining_credits": 100,
+    "expires_at": "2026-06-09T00:00:00"
   }
 }
 ```
 
-#### Deduct Score
+#### Consume Credits
 
 ```http
-POST /api/v1/keys/deduct
+POST /api/v1/codes/consume
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8",
+  "code": "A1B2-C3D4-E5F6-G7H8",
   "amount": 10,
   "metadata": {
     "order_id": "ORD-20260509",
@@ -172,11 +169,11 @@ X-API-Key: <key>
 #### Query Balance
 
 ```http
-POST /api/v1/keys/balance
+POST /api/v1/codes/balance
 X-API-Key: <key>
 
 {
-  "key_code": "A1B2-C3D4-E5F6-G7H8"
+  "code": "A1B2-C3D4-E5F6-G7H8"
 }
 ```
 
@@ -194,25 +191,25 @@ POST /api/v1/admin/login
 </details>
 
 <details>
-<summary><strong>Category Management</strong></summary>
+<summary><strong>Product Management</strong></summary>
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/admin/categories` | List all categories |
-| `POST` | `/api/v1/admin/categories` | Create category |
-| `PUT` | `/api/v1/admin/categories/{id}` | Update category |
-| `DELETE` | `/api/v1/admin/categories/{id}` | Delete category |
+| `GET` | `/api/v1/admin/products` | List all products |
+| `POST` | `/api/v1/admin/products` | Create product |
+| `PUT` | `/api/v1/admin/products/{id}` | Update product |
+| `DELETE` | `/api/v1/admin/products/{id}` | Delete product |
 
 </details>
 
 <details>
-<summary><strong>Key Management</strong></summary>
+<summary><strong>Code Management</strong></summary>
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/admin/keys/generate` | Batch generate codes |
-| `GET` | `/api/v1/admin/keys` | List codes (filterable) |
-| `GET` | `/api/v1/admin/keys/{id}` | Code detail |
+| `POST` | `/api/v1/admin/codes/generate` | Batch generate codes |
+| `GET` | `/api/v1/admin/codes` | List codes (filterable) |
+| `PUT` | `/api/v1/admin/codes/{id}/disable` | Disable a code |
 
 </details>
 
@@ -222,7 +219,7 @@ POST /api/v1/admin/login
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/admin/stats/overview` | Dashboard overview |
-| `GET` | `/api/v1/admin/stats/categories` | Per-category stats with 7-day trend |
+| `GET` | `/api/v1/admin/stats/product/{id}` | Per-product stats with 7-day trend |
 | `GET` | `/api/v1/admin/usage-logs` | Usage logs (filterable) |
 | `GET` | `/api/v1/admin/audit-logs` | Admin audit trail |
 
@@ -230,28 +227,27 @@ POST /api/v1/admin/login
 
 ## Data Model
 
-### Category
+### Product
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | VARCHAR(100) | Display name |
 | `code` | VARCHAR(50) | Unique identifier |
-| `score_per_key` | INT | Score value per code |
-| `score_label` | VARCHAR(50) | Label (e.g. "credits", "points") |
-| `max_activations` | INT | Max activations per code (1 = one-time) |
-| `expiry_days` | INT | Days until expiry after activation (NULL = never) |
-| `api_key` | VARCHAR(64) | Unique API key for this category |
+| `default_credits` | INT | Default credits per code |
+| `credit_unit` | VARCHAR(50) | Unit label (e.g. "credits", "points") |
+| `expiry_days` | INT | Days until expiry after redemption (NULL = never) |
+| `api_key` | VARCHAR(64) | Unique API key for this product |
 
-### Activation Key
+### Redemption Code
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `key_code` | VARCHAR(19) | `XXXX-XXXX-XXXX-XXXX` format |
-| `category_id` | FK | Reference to category |
+| `code` | VARCHAR(19) | `XXXX-XXXX-XXXX-XXXX` format |
+| `product_id` | FK | Reference to product |
 | `status` | ENUM | `unused` / `activated` / `expired` / `disabled` |
 | `batch_id` | VARCHAR(50) | Batch identifier |
-| `total_score` | INT | Initial score (from category) |
-| `remaining_score` | INT | Current remaining score |
+| `total_credits` | INT | Initial credits (from product config) |
+| `remaining_credits` | INT | Current remaining credits |
 | `expires_at` | DATETIME | Expiry timestamp (lazy evaluation) |
 | `metadata` | JSON | Extensible custom data |
 
@@ -321,25 +317,25 @@ keygen-platform/
 ├── backend/
 │   ├── app/
 │   │   ├── models/              # SQLAlchemy ORM models
-│   │   │   ├── category.py
-│   │   │   ├── activation_key.py
-│   │   │   ├── activation_log.py
+│   │   │   ├── product.py
+│   │   │   ├── redemption_code.py
+│   │   │   ├── usage_log.py
 │   │   │   ├── admin_user.py
 │   │   │   └── audit_log.py
 │   │   ├── schemas/             # Pydantic validation models
-│   │   │   ├── key.py
-│   │   │   ├── category.py
+│   │   │   ├── code.py
+│   │   │   ├── product.py
 │   │   │   └── admin.py
 │   │   ├── routers/             # API route handlers
-│   │   │   ├── api_keys.py      # C-End: activate, deduct, balance
+│   │   │   ├── client_codes.py  # C-End: redeem, consume, balance
 │   │   │   ├── admin_auth.py    # B-End: login
-│   │   │   ├── admin_categories.py
-│   │   │   ├── admin_keys.py
+│   │   │   ├── admin_products.py
+│   │   │   ├── admin_codes.py
 │   │   │   ├── admin_stats.py
 │   │   │   ├── admin_usage_logs.py
 │   │   │   └── admin_audit.py
 │   │   ├── services/            # Business logic
-│   │   │   ├── key_service.py   # Core: activate, deduct, balance, generate
+│   │   │   ├── code_service.py  # Core: redeem, consume, balance, generate
 │   │   │   └── stats_service.py # Dashboard analytics
 │   │   ├── middleware/          # Authentication
 │   │   │   ├── api_key_auth.py  # X-API-Key validation
@@ -356,6 +352,12 @@ keygen-platform/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/                 # Axios API layer
+│   │   │   ├── products.ts
+│   │   │   ├── codes.ts
+│   │   │   ├── stats.ts
+│   │   │   ├── usageLogs.ts
+│   │   │   ├── auditLogs.ts
+│   │   │   └── request.ts
 │   │   ├── router/              # Vue Router with auth guard
 │   │   ├── stores/              # Pinia state management
 │   │   ├── utils/               # Formatting helpers
@@ -363,10 +365,11 @@ keygen-platform/
 │   │       ├── Login.vue
 │   │       ├── Layout.vue
 │   │       ├── Dashboard.vue
-│   │       ├── Categories.vue
-│   │       ├── Keys.vue
+│   │       ├── Products.vue
+│   │       ├── Codes.vue
 │   │       ├── UsageLogs.vue
-│   │       └── AuditLogs.vue
+│   │       ├── AuditLogs.vue
+│   │       └── ApiDocs.vue
 │   ├── Dockerfile
 │   └── nginx.conf
 ├── docs/

@@ -3,37 +3,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.middleware.api_key_auth import get_category_by_api_key
-from app.models.category import Category
+from app.models.product import Product
 from app.redis_client import get_redis
-from app.schemas.key import (
-    ActivateRequest,
-    ActivateResponse,
+from app.schemas.code import (
+    RedeemRequest,
+    RedeemResponse,
     BalanceRequest,
     BalanceResponse,
-    DeductRequest,
-    DeductResponse,
+    ConsumeRequest,
+    ConsumeResponse,
 )
-from app.services.key_service import activate_key, deduct_score, get_balance
+from app.services.code_service import redeem_code, consume_credits, get_balance
 from app.utils.response import success, error
 
-router = APIRouter(prefix="/api/v1/keys", tags=["C端接口"])
+router = APIRouter(prefix="/api/v1/codes", tags=["C端接口"])
 
 
-@router.post("/activate")
-async def activate(
-    req: ActivateRequest,
+@router.post("/redeem")
+async def redeem(
+    req: RedeemRequest,
     request: Request,
-    category: Category = Depends(get_category_by_api_key),
+    product: Product = Depends(get_category_by_api_key),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
     try:
         client_ip = request.client.host if request.client else None
-        result = await activate_key(
+        result = await redeem_code(
             db=db,
             redis_client=redis,
-            key_code=req.key_code,
-            category=category,
+            code=req.code,
+            product=product,
             client_ip=client_ip,
             metadata=req.metadata,
         )
@@ -41,7 +41,7 @@ async def activate(
     except Exception as e:
         code = 1001
         msg = str(e)
-        if "已激活" in msg:
+        if "已兑换" in msg:
             code = 1002
         elif "已过期" in msg:
             code = 1003
@@ -50,22 +50,22 @@ async def activate(
         return error(code, msg)
 
 
-@router.post("/deduct")
-async def deduct(
-    req: DeductRequest,
+@router.post("/consume")
+async def consume(
+    req: ConsumeRequest,
     request: Request,
-    category: Category = Depends(get_category_by_api_key),
+    product: Product = Depends(get_category_by_api_key),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
     try:
         client_ip = request.client.host if request.client else None
-        result = await deduct_score(
+        result = await consume_credits(
             db=db,
             redis_client=redis,
-            key_code=req.key_code,
+            code=req.code,
             amount=req.amount,
-            category=category,
+            product=product,
             client_ip=client_ip,
             metadata=req.metadata,
         )
@@ -73,7 +73,7 @@ async def deduct(
     except Exception as e:
         code = 1101
         msg = str(e)
-        if "余额不足" in msg:
+        if "额度不足" in msg:
             code = 1102
         elif "繁忙" in msg:
             code = 1103
@@ -84,7 +84,7 @@ async def deduct(
 async def balance(
     req: BalanceRequest,
     request: Request,
-    category: Category = Depends(get_category_by_api_key),
+    product: Product = Depends(get_category_by_api_key),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
@@ -92,9 +92,9 @@ async def balance(
         client_ip = request.client.host if request.client else None
         result = await get_balance(
             redis_client=redis,
-            key_code=req.key_code,
+            code=req.code,
             db=db,
-            category=category,
+            product=product,
             client_ip=client_ip,
             metadata=req.metadata,
         )

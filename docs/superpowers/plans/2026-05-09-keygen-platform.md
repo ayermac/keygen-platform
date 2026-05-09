@@ -1,8 +1,14 @@
 # Keygen Platform Implementation Plan
 
+> **术语更新说明：** 本计划中的代码示例使用旧术语，实际代码已按以下对照更新：
+> - 激活码(ActivationKey) → 兑换码(RedemptionCode)，分类(Category) → 产品(Product)
+> - score/积分 → credits/额度，activate → redeem，deduct → consume
+> - API 路径：`/api/v1/keys/*` → `/api/v1/codes/*`
+> - 字段：`key_code` → `code`，`score_label` → `credit_unit`，`total_score` → `total_credits`
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a universal activation code generation and management platform with score deduction capability.
+**Goal:** Build a universal redemption code generation and management platform with credit consumption capability.
 
 **Architecture:** FastAPI backend with MySQL persistence and Redis caching for C端 high-performance APIs. Vue3 + Element Plus frontend for admin management. Docker Compose deployment with Nginx reverse proxy.
 
@@ -23,29 +29,28 @@ keygen-platform/
 │   │   ├── redis_client.py
 │   │   ├── models/
 │   │   │   ├── __init__.py
-│   │   │   ├── category.py
-│   │   │   ├── activation_key.py
-│   │   │   ├── activation_log.py
+│   │   │   ├── product.py
+│   │   │   ├── redemption_code.py
+│   │   │   ├── usage_log.py
 │   │   │   ├── admin_user.py
 │   │   │   └── audit_log.py
 │   │   ├── schemas/
 │   │   │   ├── __init__.py
-│   │   │   ├── key.py
-│   │   │   ├── category.py
+│   │   │   ├── code.py
+│   │   │   ├── product.py
 │   │   │   └── admin.py
 │   │   ├── routers/
 │   │   │   ├── __init__.py
-│   │   │   ├── api_keys.py
+│   │   │   ├── client_codes.py
 │   │   │   ├── admin_auth.py
-│   │   │   ├── admin_categories.py
-│   │   │   ├── admin_keys.py
+│   │   │   ├── admin_products.py
+│   │   │   ├── admin_codes.py
 │   │   │   ├── admin_stats.py
 │   │   │   ├── admin_usage_logs.py
 │   │   │   └── admin_audit.py
 │   │   ├── services/
 │   │   │   ├── __init__.py
-│   │   │   ├── key_service.py
-│   │   │   ├── score_service.py
+│   │   │   ├── code_service.py
 │   │   │   └── stats_service.py
 │   │   ├── middleware/
 │   │   │   ├── __init__.py
@@ -79,8 +84,8 @@ keygen-platform/
 │   │   ├── api/
 │   │   │   ├── request.ts
 │   │   │   ├── auth.ts
-│   │   │   ├── categories.ts
-│   │   │   ├── keys.ts
+│   │   │   ├── products.ts
+│   │   │   ├── codes.ts
 │   │   │   ├── stats.ts
 │   │   │   ├── usageLogs.ts
 │   │   │   └── auditLogs.ts
@@ -88,10 +93,11 @@ keygen-platform/
 │   │   │   ├── Login.vue
 │   │   │   ├── Layout.vue
 │   │   │   ├── Dashboard.vue
-│   │   │   ├── Categories.vue
+│   │   │   ├── Products.vue
 │   │   │   ├── Keys.vue
 │   │   │   ├── UsageLogs.vue
-│   │   │   └── AuditLogs.vue
+│   │   │   ├── AuditLogs.vue
+│   │   │   └── ApiDocs.vue
 │   │   └── utils/
 │   │       └── format.ts
 │   ├── index.html
@@ -384,9 +390,9 @@ git commit -m "feat: project scaffolding with Docker Compose setup"
 **Files:**
 - Create: `backend/app/database.py`
 - Create: `backend/app/models/__init__.py`
-- Create: `backend/app/models/category.py`
-- Create: `backend/app/models/activation_key.py`
-- Create: `backend/app/models/activation_log.py`
+- Create: `backend/app/models/product.py`
+- Create: `backend/app/models/redemption_code.py`
+- Create: `backend/app/models/usage_log.py`
 - Create: `backend/app/models/admin_user.py`
 - Create: `backend/app/models/audit_log.py`
 - Create: `backend/alembic.ini`
@@ -723,8 +729,8 @@ git commit -m "feat: key generator, response utility, and Redis client"
 
 **Files:**
 - Create: `backend/app/schemas/__init__.py`
-- Create: `backend/app/schemas/key.py`
-- Create: `backend/app/schemas/category.py`
+- Create: `backend/app/schemas/code.py`
+- Create: `backend/app/schemas/product.py`
 - Create: `backend/app/schemas/admin.py`
 
 - [ ] **Step 1: Create backend/app/schemas/key.py**
@@ -1396,7 +1402,7 @@ git commit -m "feat: key service with activate, deduct, balance, and generate"
 
 **Files:**
 - Create: `backend/app/routers/__init__.py`
-- Create: `backend/app/routers/api_keys.py`
+- Create: `backend/app/routers/client_codes.py`
 - Modify: `backend/app/main.py` (register router)
 
 - [ ] **Step 1: Implement C端 API routes**
@@ -1530,7 +1536,7 @@ git commit -m "feat: C端 activation code API routes"
 
 **Files:**
 - Create: `backend/app/routers/admin_auth.py`
-- Create: `backend/app/routers/admin_categories.py`
+- Create: `backend/app/routers/admin_products.py`
 - Modify: `backend/app/main.py` (register routers)
 
 - [ ] **Step 1: Implement admin auth routes**

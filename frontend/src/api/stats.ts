@@ -4,6 +4,6 @@ export function getStatsOverview() {
   return request.get('/admin/stats')
 }
 
-export function getCategoryStats(categoryId: number) {
-  return request.get(`/admin/stats/category/${categoryId}`)
+export function getProductStats(productId: number) {
+  return request.get(`/admin/stats/product/${productId}`)
 }
