@@ -115,17 +115,38 @@ async def consume_credits(
     product: Product,
     client_ip: str | None,
     metadata: dict | None,
+    request_id: str | None = None,
 ) -> dict:
-    # Check cache first
+    # ── Resolve code first (needed for idempotency scope + validation) ──
+    result = await db.execute(
+        select(RedemptionCode).where(RedemptionCode.key_code == code)
+    )
+    redemption_code = result.scalar_one_or_none()
+    if not redemption_code:
+        raise CodeNotFound()
+    if redemption_code.category_id != product.id:
+        raise ProductMismatch()
+
+    key_id = redemption_code.id
+
+    # ── Idempotency check: product + code + request_id + action ──
+    if request_id:
+        existing = await db.execute(
+            select(UsageLog).where(
+                UsageLog.category_id == product.id,
+                UsageLog.key_id == key_id,
+                UsageLog.action == "deduct",
+                UsageLog.request_id == request_id,
+            )
+        )
+        prior_log = existing.scalar_one_or_none()
+        if prior_log:
+            return {"remaining_credits": prior_log.remaining_after}
+
+    # ── Check cache ──
     cache = await redis_client.hgetall(f"key:{code}")
 
     if not cache:
-        result = await db.execute(
-            select(RedemptionCode).where(RedemptionCode.key_code == code)
-        )
-        redemption_code = result.scalar_one_or_none()
-        if not redemption_code:
-            raise CodeNotFound()
         if redemption_code.status != "activated":
             raise CodeNotActivated()
         cache = {
@@ -145,10 +166,31 @@ async def consume_credits(
         if datetime.now(timezone.utc) > expires_at:
             raise CodeExpired()
 
-    # Atomic check-and-decrement via Lua script
+    # ── Acquire locks: idempotency lock (if request_id) + consume lock ──
+    idem_key = f"idem:consume:{product.id}:{code}:{request_id}" if request_id else None
     lock_key = f"lock:key:{code}"
+
+    if idem_key:
+        idem_acquired = await redis_client.set(idem_key, "1", nx=True, ex=30)
+        if not idem_acquired:
+            # Another request with same request_id is in progress; check for result
+            existing = await db.execute(
+                select(UsageLog).where(
+                    UsageLog.category_id == product.id,
+                    UsageLog.key_id == key_id,
+                    UsageLog.action == "deduct",
+                    UsageLog.request_id == request_id,
+                )
+            )
+            prior_log = existing.scalar_one_or_none()
+            if prior_log:
+                return {"remaining_credits": prior_log.remaining_after}
+            raise SystemBusy()
+
     acquired = await redis_client.set(lock_key, "1", nx=True, ex=5)
     if not acquired:
+        if idem_key:
+            await redis_client.delete(idem_key)
         raise SystemBusy()
 
     try:
@@ -161,26 +203,24 @@ async def consume_credits(
             raise InsufficientCredits()
 
         # Write to MySQL
-        result = await db.execute(
-            select(RedemptionCode).where(RedemptionCode.key_code == code)
+        redemption_code.remaining_score = new_remaining
+        log = UsageLog(
+            key_id=key_id,
+            category_id=product.id,
+            action="deduct",
+            amount=amount,
+            remaining_after=new_remaining,
+            metadata_=metadata,
+            client_ip=client_ip,
+            request_id=request_id,
         )
-        redemption_code = result.scalar_one_or_none()
-        if redemption_code:
-            redemption_code.remaining_score = new_remaining
-            log = UsageLog(
-                key_id=redemption_code.id,
-                category_id=product.id,
-                action="deduct",
-                amount=amount,
-                remaining_after=new_remaining,
-                metadata_=metadata,
-                client_ip=client_ip,
-            )
-            db.add(log)
+        db.add(log)
 
         return {"remaining_credits": new_remaining}
     finally:
         await redis_client.delete(lock_key)
+        if idem_key:
+            await redis_client.delete(idem_key)
 
 
 async def get_balance(

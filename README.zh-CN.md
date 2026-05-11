@@ -166,12 +166,15 @@ X-API-Key: <key>
 {
   "code": "A1B2-C3D4-E5F6-G7H8",
   "amount": 10,
+  "request_id": "order-20260511-001",
   "metadata": {
     "order_id": "ORD-20260509",
     "description": "购买道具 X"
   }
 }
 ```
+
+> **幂等性：** 传入 `request_id` 可防止客户端重试导致的重复扣减。相同 `request_id` + 产品 + 兑换码仅扣减一次并返回首次结果。不传则保持原行为。
 
 #### 查询余额
 

@@ -32,6 +32,7 @@ async def search_usage_logs(
             UsageLog.remaining_after,
             UsageLog.metadata_.label("metadata"),
             UsageLog.client_ip,
+            UsageLog.request_id,
             UsageLog.created_at,
         )
         .join(RedemptionCode, UsageLog.key_id == RedemptionCode.id)
@@ -68,6 +69,7 @@ async def search_usage_logs(
             remaining_after=row.remaining_after,
             metadata=row.metadata,
             client_ip=row.client_ip,
+            request_id=row.request_id,
             created_at=row.created_at,
         )
         for row in rows

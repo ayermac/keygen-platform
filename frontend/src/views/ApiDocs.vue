@@ -379,6 +379,12 @@
                   <td>否</td>
                   <td>自定义上报数据</td>
                 </tr>
+                <tr>
+                  <td><code>request_id</code></td>
+                  <td>string</td>
+                  <td>否</td>
+                  <td>幂等请求 ID（最长 128 字符）。相同 ID 仅扣减一次，防止客户端重试导致重复扣减</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -397,6 +403,7 @@
   -d '{
     "code": "A1B2-C3D4-E5F6-G7H8",
     "amount": 10,
+    "request_id": "order-20260511-001",
     "metadata": {
       "action": "generate_image",
       "model": "dall-e-3"
@@ -441,7 +448,7 @@
 
           <div class="warning-box">
             <el-icon><Warning /></el-icon>
-            <span>消耗数量必须大于 0，否则返回 422 参数校验错误。消耗大于剩余额度时返回错误码 1102。</span>
+            <span>消耗数量必须大于 0，否则返回 422 参数校验错误。消耗大于剩余额度时返回错误码 1102。传递 <code>request_id</code> 可防止重试导致的重复扣减。</span>
           </div>
         </div>
       </div>
@@ -649,11 +656,14 @@ def redeem_code(code: str) -> dict:
     )
     return resp.json()
 
-def consume_credits(code: str, amount: int) -> dict:
-    """消耗额度"""
+def consume_credits(code: str, amount: int, request_id: str | None = None) -> dict:
+    """消耗额度，request_id 可防止重试重复扣减"""
+    payload = {"code": code, "amount": amount}
+    if request_id:
+        payload["request_id"] = request_id
     resp = httpx.post(
         f"{API_BASE}/codes/consume",
-        json={"code": code, "amount": amount},
+        json=payload,
         headers=headers,
     )
     return resp.json()
@@ -700,11 +710,13 @@ async function redeemCode(code) {
   return resp.json();
 }
 
-async function consumeCredits(code, amount) {
+async function consumeCredits(code, amount, requestId) {
+  const payload = { code, amount };
+  if (requestId) payload.request_id = requestId;
   const resp = await fetch(`${API_BASE}/codes/consume`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ code, amount }),
+    body: JSON.stringify(payload),
   });
   return resp.json();
 }
@@ -738,7 +750,7 @@ if (result.code === 0) {
             <div class="agent-note">
               <div class="note-icon">2</div>
               <div class="note-content">
-                <strong>幂等性：</strong>兑换接口非幂等（重复调用返回 1002），消耗接口非幂等（每次消耗指定数量）
+                <strong>幂等性：</strong>兑换接口非幂等（重复调用返回 1002）。消耗接口支持通过 <code>request_id</code> 实现幂等：相同 ID 仅扣减一次并返回首次结果，适合网络重试场景。不传 <code>request_id</code> 则保持原行为
               </div>
             </div>
             <div class="agent-note">

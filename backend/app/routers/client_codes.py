@@ -60,6 +60,7 @@ async def consume(
             product=product,
             client_ip=client_ip,
             metadata=req.metadata,
+            request_id=req.request_id,
         )
         return success(result)
     except BizError as e:

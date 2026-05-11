@@ -4,6 +4,8 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from app.services.code_service import redeem_code, consume_credits, get_balance, generate_codes
+from app.models.usage_log import UsageLog
+from app.models.redemption_code import RedemptionCode
 from app.exceptions import (
     CodeNotFound,
     CodeAlreadyRedeemed,
@@ -124,6 +126,12 @@ async def test_redeem_with_expiry(mock_db, mock_redis, mock_product, mock_redemp
 
 # ── consume_credits tests ──
 
+def _mock_code_resolve(mock_db, redemption_code):
+    """Set up mock_db.execute to return a code resolution result."""
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = redemption_code
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
 @pytest.mark.asyncio
 async def test_consume_success(mock_db, mock_redis, mock_product, mock_redemption_code):
     mock_redis.hgetall = AsyncMock(return_value={
@@ -145,7 +153,8 @@ async def test_consume_success(mock_db, mock_redis, mock_product, mock_redemptio
 
 
 @pytest.mark.asyncio
-async def test_consume_insufficient(mock_db, mock_redis, mock_product):
+async def test_consume_insufficient(mock_db, mock_redis, mock_product, mock_redemption_code):
+    _mock_code_resolve(mock_db, mock_redemption_code)
     mock_redis.hgetall = AsyncMock(return_value={
         "status": "activated", "remaining_score": "5", "expires_at": "",
     })
@@ -159,7 +168,8 @@ async def test_consume_insufficient(mock_db, mock_redis, mock_product):
 
 
 @pytest.mark.asyncio
-async def test_consume_system_busy(mock_db, mock_redis, mock_product):
+async def test_consume_system_busy(mock_db, mock_redis, mock_product, mock_redemption_code):
+    _mock_code_resolve(mock_db, mock_redemption_code)
     mock_redis.hgetall = AsyncMock(return_value={
         "status": "activated", "remaining_score": "100", "expires_at": "",
     })
@@ -173,7 +183,8 @@ async def test_consume_system_busy(mock_db, mock_redis, mock_product):
 
 
 @pytest.mark.asyncio
-async def test_consume_expired_code(mock_db, mock_redis, mock_product):
+async def test_consume_expired_code(mock_db, mock_redis, mock_product, mock_redemption_code):
+    _mock_code_resolve(mock_db, mock_redemption_code)
     mock_redis.hgetall = AsyncMock(return_value={
         "status": "activated", "remaining_score": "100", "expires_at": "2020-01-01T00:00:00+00:00",
     })
@@ -335,3 +346,195 @@ async def test_generate_codes_with_card_type(mock_db, mock_product):
     assert first_call.total_score == 200
     assert first_call.expiry_days == 30
     assert first_call.card_type_name == "月卡"
+
+
+# ── Idempotent consume tests (request_id) ──
+# Flow: 1st db.execute = code resolution, 2nd db.execute = idempotency check
+
+def _make_prior_log(remaining: int) -> MagicMock:
+    """Create a mock UsageLog row for idempotency lookup."""
+    log = MagicMock(spec=UsageLog)
+    log.remaining_after = remaining
+    return log
+
+
+@pytest.mark.asyncio
+async def test_consume_with_request_id_success(mock_db, mock_redis, mock_product, mock_redemption_code):
+    """First call with request_id proceeds normally."""
+    mock_redis.hgetall = AsyncMock(return_value={
+        "status": "activated", "remaining_score": "100", "expires_at": "",
+    })
+    mock_redis.set = AsyncMock(return_value=True)
+    mock_redis.eval = AsyncMock(return_value=90)
+
+    found_code = MagicMock(); found_code.scalar_one_or_none.return_value = mock_redemption_code
+    no_prior = MagicMock(); no_prior.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[found_code, no_prior])
+
+    result = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-abc-123",
+    )
+
+    assert result["remaining_credits"] == 90
+    mock_redis.eval.assert_called_once()
+    mock_db.add.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_consume_same_request_id_returns_cached(mock_db, mock_redis, mock_product, mock_redemption_code):
+    """Duplicate request_id returns the prior result without deducting again."""
+    prior_log = _make_prior_log(90)
+    found_code = MagicMock(); found_code.scalar_one_or_none.return_value = mock_redemption_code
+    found_prior = MagicMock(); found_prior.scalar_one_or_none.return_value = prior_log
+    mock_db.execute = AsyncMock(side_effect=[found_code, found_prior])
+
+    result = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-abc-123",
+    )
+
+    assert result["remaining_credits"] == 90
+    mock_redis.hgetall.assert_not_called()
+    mock_redis.eval.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_consume_different_request_ids_deduct_independently(mock_db, mock_redis, mock_product, mock_redemption_code):
+    """Different request_id values each perform their own deduction."""
+    mock_redis.hgetall = AsyncMock(return_value={
+        "status": "activated", "remaining_score": "100", "expires_at": "",
+    })
+    mock_redis.set = AsyncMock(return_value=True)
+    mock_redis.eval = AsyncMock(side_effect=[90, 80])
+
+    # Each call: 1st execute=code resolution, 2nd=idempotency check
+    found_code = MagicMock(); found_code.scalar_one_or_none.return_value = mock_redemption_code
+    no_prior = MagicMock(); no_prior.scalar_one_or_none.return_value = None
+    found_code2 = MagicMock(); found_code2.scalar_one_or_none.return_value = mock_redemption_code
+    no_prior2 = MagicMock(); no_prior2.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[found_code, no_prior, found_code2, no_prior2])
+
+    result1 = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-001",
+    )
+    assert result1["remaining_credits"] == 90
+
+    result2 = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-002",
+    )
+    assert result2["remaining_credits"] == 80
+    assert mock_redis.eval.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_consume_different_codes_same_request_id_deduct_independently(
+    mock_db, mock_redis, mock_product, mock_redemption_code,
+):
+    """Same product + same request_id + different codes must deduct independently."""
+    mock_redis.hgetall = AsyncMock(return_value={
+        "status": "activated", "remaining_score": "100", "expires_at": "",
+    })
+    mock_redis.set = AsyncMock(return_value=True)
+    mock_redis.eval = AsyncMock(side_effect=[90, 80])
+
+    code_a = MagicMock(spec=RedemptionCode)
+    code_a.id = 1; code_a.key_code = "AAAA-BBBB-CCCC-DDDD"
+    code_a.category_id = mock_product.id; code_a.status = "activated"
+    code_a.remaining_score = 100; code_a.expires_at = None
+
+    code_b = MagicMock(spec=RedemptionCode)
+    code_b.id = 2; code_b.key_code = "EEEE-FFFF-GGGG-HHHH"
+    code_b.category_id = mock_product.id; code_b.status = "activated"
+    code_b.remaining_score = 100; code_b.expires_at = None
+
+    found_a = MagicMock(); found_a.scalar_one_or_none.return_value = code_a
+    no_prior_a = MagicMock(); no_prior_a.scalar_one_or_none.return_value = None
+    found_b = MagicMock(); found_b.scalar_one_or_none.return_value = code_b
+    no_prior_b = MagicMock(); no_prior_b.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[found_a, no_prior_a, found_b, no_prior_b])
+
+    result1 = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="AAAA-BBBB-CCCC-DDDD",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-shared",
+    )
+    assert result1["remaining_credits"] == 90
+
+    result2 = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="EEEE-FFFF-GGGG-HHHH",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-shared",
+    )
+    assert result2["remaining_credits"] == 80
+    assert mock_redis.eval.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_consume_no_request_id_skips_idempotency(mock_db, mock_redis, mock_product, mock_redemption_code):
+    """Without request_id, idempotency check is skipped entirely."""
+    mock_redis.hgetall = AsyncMock(return_value={
+        "status": "activated", "remaining_score": "100", "expires_at": "",
+    })
+    mock_redis.set = AsyncMock(return_value=True)
+    mock_redis.eval = AsyncMock(return_value=90)
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_redemption_code
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    result = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id=None,
+    )
+
+    assert result["remaining_credits"] == 90
+    mock_redis.eval.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_consume_idem_lock_contention_with_prior_result(mock_db, mock_redis, mock_product, mock_redemption_code):
+    """When idempotency lock not acquired but prior log exists, return cached result."""
+    prior_log = _make_prior_log(85)
+    mock_redis.set = AsyncMock(return_value=None)  # idem lock not acquired
+
+    found_code = MagicMock(); found_code.scalar_one_or_none.return_value = mock_redemption_code
+    found_prior = MagicMock(); found_prior.scalar_one_or_none.return_value = prior_log
+    mock_db.execute = AsyncMock(side_effect=[found_code, found_prior])
+
+    result = await consume_credits(
+        db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+        amount=10, product=mock_product, client_ip=None, metadata=None,
+        request_id="req-concurrent",
+    )
+
+    assert result["remaining_credits"] == 85
+
+
+@pytest.mark.asyncio
+async def test_consume_idem_lock_contention_no_prior_raises_busy(
+    mock_db, mock_redis, mock_product, mock_redemption_code,
+):
+    """When idempotency lock not acquired and no prior log, raise SystemBusy."""
+    mock_redis.hgetall = AsyncMock(return_value={
+        "status": "activated", "remaining_score": "90", "expires_at": "",
+    })
+    mock_redis.set = AsyncMock(side_effect=[None])
+
+    found_code = MagicMock(); found_code.scalar_one_or_none.return_value = mock_redemption_code
+    no_prior = MagicMock(); no_prior.scalar_one_or_none.return_value = None
+    no_prior2 = MagicMock(); no_prior2.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[found_code, no_prior, no_prior2])
+
+    with pytest.raises(SystemBusy):
+        await consume_credits(
+            db=mock_db, redis_client=mock_redis, code="A1B2-C3D4-E5F6-G7H8",
+            amount=10, product=mock_product, client_ip=None, metadata=None,
+            request_id="req-stuck",
+        )

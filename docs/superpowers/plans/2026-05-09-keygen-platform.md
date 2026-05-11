@@ -1,5 +1,9 @@
 # Keygen Platform Implementation Plan
 
+> **Status:** Historical initial implementation plan. This document records the original build-out tasks for the first platform version. For ongoing product evolution, production hardening follow-ups, and version-by-version planning, use:
+>
+> - [2026-05-11-keygen-platform-version-roadmap.md](2026-05-11-keygen-platform-version-roadmap.md)
+>
 > **术语更新说明：** 本计划中的代码示例使用旧术语，实际代码已按以下对照更新：
 > - 激活码(ActivationKey) → 兑换码(RedemptionCode)，分类(Category) → 产品(Product)
 > - score/积分 → credits/额度，activate → redeem，deduct → consume

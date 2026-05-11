@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class RedeemRequest(BaseModel):
@@ -23,6 +23,15 @@ class ConsumeRequest(BaseModel):
     code: str
     amount: int = Field(gt=0, description="消耗数量，必须大于 0")
     metadata: dict[str, Any] | None = None
+    request_id: str | None = Field(default=None, max_length=128, description="幂等请求 ID，相同 ID 只扣减一次")
+
+    @field_validator("request_id")
+    @classmethod
+    def strip_request_id(cls, v: str | None) -> str | None:
+        if v is not None:
+            v = v.strip()
+            return v if v else None
+        return v
 
 
 class ConsumeResponse(BaseModel):
@@ -104,6 +113,7 @@ class UsageLogItem(BaseModel):
     remaining_after: int
     metadata: dict[str, Any] | None
     client_ip: str | None
+    request_id: str | None = None
     created_at: datetime
 
 

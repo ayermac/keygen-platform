@@ -84,6 +84,14 @@
             <code class="ip-text">{{ row.client_ip }}</code>
           </template>
         </el-table-column>
+        <el-table-column label="请求ID" width="160">
+          <template #default="{ row }">
+            <el-tooltip v-if="row.request_id" :content="row.request_id" placement="top">
+              <code class="request-id-text">{{ row.request_id.length > 16 ? row.request_id.slice(0, 16) + '...' : row.request_id }}</code>
+            </el-tooltip>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="时间" width="170">
           <template #default="{ row }">
             <span class="time-text">{{ formatDateTime(row.created_at) }}</span>
@@ -167,6 +175,13 @@ onMounted(() => {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 13px;
   color: var(--kg-text-secondary);
+}
+
+.request-id-text {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--kg-text-secondary);
+  cursor: default;
 }
 
 .time-text {

@@ -168,12 +168,15 @@ X-API-Key: <key>
 {
   "code": "A1B2-C3D4-E5F6-G7H8",
   "amount": 10,
+  "request_id": "order-20260511-001",
   "metadata": {
     "order_id": "ORD-20260509",
     "description": "Purchase item X"
   }
 }
 ```
+
+> **Idempotency:** Pass `request_id` to prevent duplicate deductions on client retries. Same `request_id` + product + code returns the first result without re-deducting. Omit `request_id` to preserve legacy behavior.
 
 #### Query Balance
 
@@ -443,6 +446,7 @@ The initial migration captures the full schema. Always generate a new migration 
 | **Login rate limiting** | 5 attempts per IP per 60s window via Redis counter |
 | **API key rotation** | `POST /api/v1/admin/products/{id}/rotate-key` invalidates old key and all related Redis caches |
 | **Redis Lua atomic consume** | Credit deduction uses a Lua script to prevent race conditions |
+| **Idempotent consumption** | Optional `request_id` prevents duplicate deductions on retries |
 | **Audit logging** | All admin mutations (create/update/delete product, generate/disable codes, login) are recorded |
 | **Nginx security headers** | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` |
 | **Request ID tracing** | Every request gets a `X-Request-ID` header for log correlation |
