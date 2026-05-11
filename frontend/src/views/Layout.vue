@@ -103,7 +103,7 @@ const pageTitle = computed(() => {
     '/usage-logs': '使用日志',
     '/audit-logs': '审计日志',
   }
-  return titles[route.path] || 'Keygen Platform'
+  return titles[route.path] || 'Keygen'
 })
 
 function handleLogout(command: string) {

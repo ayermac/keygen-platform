@@ -5,7 +5,7 @@
       <div class="docs-header-inner">
         <div class="docs-logo">
           <div class="logo-icon">K</div>
-          <span class="logo-text">Keygen Platform</span>
+          <span class="logo-text">Keygen</span>
         </div>
         <div class="docs-nav">
           <span class="docs-nav-active">接入文档</span>
@@ -32,7 +32,7 @@
         </h2>
         <div class="section-body">
           <p class="doc-text">
-            Keygen Platform 提供 RESTful API 供 C 端业务接入。所有接口通过 <code>X-API-Key</code> 请求头进行认证，
+            Keygen 提供 RESTful API 供 C 端业务接入。所有接口通过 <code>X-API-Key</code> 请求头进行认证，
             每个产品拥有独立的 API Key。接口返回统一 JSON 格式，包含 <code>code</code>、<code>message</code>、<code>data</code> 三个字段。
           </p>
           <div class="info-grid">

@@ -14,7 +14,7 @@
         <div class="login-logo">
           <div class="logo-icon">K</div>
         </div>
-        <h1 class="login-title">Keygen Platform</h1>
+        <h1 class="login-title">Keygen</h1>
         <p class="login-subtitle">兑换码管理系统</p>
       </div>
 

@@ -59,31 +59,25 @@
             <span class="time-text">{{ formatDateTime(row.created_at) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="80" fixed="right" align="center">
           <template #default="{ row }">
-            <div class="action-cell">
-              <el-button type="primary" size="small" plain @click="openDetail(row.batch_id)">
-                详情
+            <el-dropdown trigger="click" @command="(cmd: string) => handleAction(cmd, row.batch_id)">
+              <el-button type="primary" size="small">
+                操作 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
-              <el-dropdown @command="(cmd: string) => handleExport(row.batch_id, cmd)" trigger="click">
-                <el-button type="success" size="small" plain>
-                  导出 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="">全部</el-dropdown-item>
-                    <el-dropdown-item command="unused">未兑换</el-dropdown-item>
-                    <el-dropdown-item command="activated">已兑换</el-dropdown-item>
-                    <el-dropdown-item command="disabled">已禁用</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-              <el-popconfirm title="确定禁用该批次所有兑换码？此操作不可撤销。" @confirm="handleDisable(row.batch_id)">
-                <template #reference>
-                  <el-button type="danger" size="small" plain>禁用</el-button>
-                </template>
-              </el-popconfirm>
-            </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="detail">查看详情</el-dropdown-item>
+                  <el-dropdown-item divided command="export_all">导出全部</el-dropdown-item>
+                  <el-dropdown-item command="export_unused">导出未兑换</el-dropdown-item>
+                  <el-dropdown-item command="export_activated">导出已兑换</el-dropdown-item>
+                  <el-dropdown-item command="export_disabled">导出已禁用</el-dropdown-item>
+                  <el-dropdown-item divided command="disable">
+                    <span style="color: var(--el-color-danger)">禁用批次</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -154,7 +148,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { searchBatches, getBatchDetail, disableBatch } from '../api/batches'
 import { getProducts } from '../api/products'
@@ -190,6 +184,22 @@ async function openDetail(batchId: string) {
   detailVisible.value = true
 }
 
+function handleAction(cmd: string, batchId: string) {
+  if (cmd === 'detail') {
+    openDetail(batchId)
+  } else if (cmd.startsWith('export_')) {
+    const statusMap: Record<string, string> = {
+      export_all: '',
+      export_unused: 'unused',
+      export_activated: 'activated',
+      export_disabled: 'disabled',
+    }
+    handleExport(batchId, statusMap[cmd] || '')
+  } else if (cmd === 'disable') {
+    handleDisable(batchId)
+  }
+}
+
 function handleExport(batchId: string, statusFilter: string) {
   const token = localStorage.getItem('token')
   let url = `/api/v1/admin/batches/${batchId}/export`
@@ -212,9 +222,18 @@ function handleExport(batchId: string, statusFilter: string) {
 }
 
 async function handleDisable(batchId: string) {
-  await disableBatch(batchId)
-  ElMessage.success('批次已禁用')
-  loadBatches()
+  try {
+    await ElMessageBox.confirm('确定禁用该批次所有兑换码？此操作不可撤销。', '确认禁用', {
+      confirmButtonText: '禁用',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await disableBatch(batchId)
+    ElMessage.success('批次已禁用')
+    loadBatches()
+  } catch {
+    // user cancelled
+  }
 }
 
 onMounted(() => {
@@ -259,12 +278,6 @@ onMounted(() => {
 
 .text-muted {
   color: var(--kg-text-muted);
-}
-
-.action-cell {
-  display: flex;
-  gap: 6px;
-  align-items: center;
 }
 
 .detail-meta {
