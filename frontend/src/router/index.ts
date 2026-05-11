@@ -39,6 +39,12 @@ const router = createRouter({
           meta: { title: '兑换码管理' },
         },
         {
+          path: 'batches',
+          name: 'Batches',
+          component: () => import('../views/Batches.vue'),
+          meta: { title: '批次管理' },
+        },
+        {
           path: 'usage-logs',
           name: 'UsageLogs',
           component: () => import('../views/UsageLogs.vue'),

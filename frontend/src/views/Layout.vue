@@ -28,6 +28,10 @@
           <el-icon class="menu-icon"><Key /></el-icon>
           <template #title>兑换码管理</template>
         </el-menu-item>
+        <el-menu-item index="/batches">
+          <el-icon class="menu-icon"><Files /></el-icon>
+          <template #title>批次管理</template>
+        </el-menu-item>
         <el-menu-item index="/usage-logs">
           <el-icon class="menu-icon"><Document /></el-icon>
           <template #title>使用日志</template>
@@ -95,6 +99,7 @@ const pageTitle = computed(() => {
     '/dashboard': '数据看板',
     '/products': '产品管理',
     '/codes': '兑换码管理',
+    '/batches': '批次管理',
     '/usage-logs': '使用日志',
     '/audit-logs': '审计日志',
   }

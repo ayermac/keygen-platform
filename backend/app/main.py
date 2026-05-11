@@ -13,7 +13,8 @@ from app.database import engine, Base, async_session
 from app.exceptions import BizError
 from app.middleware.jwt_auth import get_password_hash
 from app.models.admin_user import AdminUser
-from app.routers import client_codes, admin_auth, admin_products, admin_codes, admin_stats, admin_usage_logs, admin_audit
+from app.routers import client_codes, admin_auth, admin_products, admin_codes, admin_stats, admin_usage_logs, admin_audit, admin_batches
+from app.models import code_batch  # noqa: F401 — register model for metadata
 
 # ── Structured Logging ──
 
@@ -132,6 +133,7 @@ app.include_router(admin_codes.router)
 app.include_router(admin_stats.router)
 app.include_router(admin_usage_logs.router)
 app.include_router(admin_audit.router)
+app.include_router(admin_batches.router)
 
 
 # ── Health Endpoints ──
@@ -282,6 +284,7 @@ Status values: unused, activated, expired, disabled
 | 1302 | Product not found |
 | 1303 | Product has codes |
 | 1401 | Invalid generate count |
+| 1402 | Batch not found |
 | 1501 | Invalid API key |
 
 ## Agent Integration Notes

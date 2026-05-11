@@ -37,7 +37,10 @@ async def generate(
     if req.count < 1 or req.count > 10000:
         return error(InvalidGenerateCount.code, InvalidGenerateCount.message)
 
-    batch_id, codes = await generate_codes(db, product, req.count, req.batch_id, req.card_type)
+    batch_id, codes = await generate_codes(
+        db, product, req.count, req.batch_id, req.card_type,
+        creator=admin.username, remark=req.remark,
+    )
 
     client_ip = request.client.host if request.client else "unknown"
     await write_audit(db, admin_id=admin.id, action="generate_codes", target_type="product", target_id=product.id, detail={"batch_id": batch_id, "count": len(codes)}, client_ip=client_ip)

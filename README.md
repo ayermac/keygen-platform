@@ -226,6 +226,18 @@ POST /api/v1/admin/login
 </details>
 
 <details>
+<summary><strong>Batch Management</strong></summary>
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/admin/batches/search` | List batches (filterable) |
+| `GET` | `/api/v1/admin/batches/{batch_id}` | Batch detail with codes |
+| `GET` | `/api/v1/admin/batches/{batch_id}/export` | Export batch as CSV |
+| `PUT` | `/api/v1/admin/batches/{batch_id}/disable` | Disable all codes in batch |
+
+</details>
+
+<details>
 <summary><strong>Analytics & Logs</strong></summary>
 
 | Method | Path | Description |

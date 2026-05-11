@@ -57,6 +57,7 @@ class CodeGenerateRequest(BaseModel):
     count: int
     batch_id: str | None = None
     card_type: str | None = None
+    remark: str | None = None
 
 
 class CodeGenerateResponse(BaseModel):
@@ -122,3 +123,53 @@ class UsageLogSearchResponse(BaseModel):
     page: int
     page_size: int
     items: list[UsageLogItem]
+
+
+class BatchSearchRequest(BaseModel):
+    product_id: int | None = None
+    batch_id: str | None = None
+    page: int = 1
+    page_size: int = 20
+
+
+class BatchItem(BaseModel):
+    id: int
+    batch_id: str
+    product_name: str
+    card_type_name: str | None
+    count: int
+    total_score: int
+    creator: str | None
+    remark: str | None
+    created_at: datetime
+
+
+class BatchSearchResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[BatchItem]
+
+
+class BatchCodeItem(BaseModel):
+    id: int
+    code: str
+    status: str
+    total_score: int
+    remaining_score: int
+    activated_at: datetime | None
+    expires_at: datetime | None
+    created_at: datetime
+
+
+class BatchDetailResponse(BaseModel):
+    id: int
+    batch_id: str
+    product_name: str
+    card_type_name: str | None
+    count: int
+    total_score: int
+    creator: str | None
+    remark: str | None
+    created_at: datetime
+    codes: list[BatchCodeItem]

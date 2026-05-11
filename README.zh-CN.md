@@ -224,6 +224,18 @@ POST /api/v1/admin/login
 </details>
 
 <details>
+<summary><strong>批次管理</strong></summary>
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/admin/batches/search` | 批次列表（支持筛选） |
+| `GET` | `/api/v1/admin/batches/{batch_id}` | 批次详情（含兑换码列表） |
+| `GET` | `/api/v1/admin/batches/{batch_id}/export` | 导出批次 CSV |
+| `PUT` | `/api/v1/admin/batches/{batch_id}/disable` | 禁用批次所有兑换码 |
+
+</details>
+
+<details>
 <summary><strong>统计与日志</strong></summary>
 
 | 方法 | 路径 | 说明 |

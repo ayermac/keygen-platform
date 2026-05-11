@@ -73,6 +73,8 @@ Acceptance criteria:
 
 ## v1.2: Batch Management And Export
 
+Status: **done** (2026-05-11)
+
 Goal: make generated code batches operable by support and operations teams.
 
 Scope:

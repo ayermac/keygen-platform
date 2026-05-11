@@ -317,7 +317,7 @@ async def test_generate_codes(mock_db, mock_product):
 
     assert batch_id == "B001"
     assert len(codes) == 5
-    assert mock_db.add.call_count == 5
+    assert mock_db.add.call_count == 6  # 5 codes + 1 batch record
 
 
 @pytest.mark.asyncio
@@ -346,6 +346,24 @@ async def test_generate_codes_with_card_type(mock_db, mock_product):
     assert first_call.total_score == 200
     assert first_call.expiry_days == 30
     assert first_call.card_type_name == "月卡"
+
+
+@pytest.mark.asyncio
+async def test_generate_codes_creates_batch_record(mock_db, mock_product):
+    batch_id, codes = await generate_codes(
+        db=mock_db, product=mock_product, count=3, batch_id="B999",
+        creator="admin", remark="test batch",
+    )
+
+    assert batch_id == "B999"
+    # Last db.add call is the CodeBatch
+    batch_call = mock_db.add.call_args_list[-1][0][0]
+    assert batch_call.batch_id == "B999"
+    assert batch_call.category_id == mock_product.id
+    assert batch_call.count == 3
+    assert batch_call.total_score == mock_product.score_per_key
+    assert batch_call.creator == "admin"
+    assert batch_call.remark == "test batch"
 
 
 # ── Idempotent consume tests (request_id) ──

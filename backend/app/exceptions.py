@@ -98,6 +98,11 @@ class InvalidGenerateCount(BizError):
     message = "生成数量需在 1-10000 之间"
 
 
+class BatchNotFound(BizError):
+    code = 1402
+    message = "批次不存在"
+
+
 # ── B-end: API Key errors (1501-1599) ──
 
 class InvalidApiKey(BizError):

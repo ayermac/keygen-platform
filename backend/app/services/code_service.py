@@ -19,6 +19,7 @@ from app.exceptions import (
 from app.models.redemption_code import RedemptionCode
 from app.models.usage_log import UsageLog
 from app.models.product import Product
+from app.models.code_batch import CodeBatch
 from app.utils.key_generator import generate_batch_key_codes
 
 
@@ -281,6 +282,8 @@ async def generate_codes(
     count: int,
     batch_id: str | None,
     card_type: str | None = None,
+    creator: str | None = None,
+    remark: str | None = None,
 ) -> tuple[str, list[str]]:
     if not batch_id:
         batch_id = f"B{int(datetime.now(timezone.utc).timestamp())}"
@@ -312,5 +315,16 @@ async def generate_codes(
             expiry_days=expiry_days,
         )
         db.add(key)
+
+    batch = CodeBatch(
+        batch_id=batch_id,
+        category_id=product.id,
+        card_type_name=card_type_name,
+        count=count,
+        total_score=total_score,
+        creator=creator,
+        remark=remark,
+    )
+    db.add(batch)
 
     return batch_id, codes
