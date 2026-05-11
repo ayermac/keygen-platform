@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import BigInteger, String, Integer, DateTime, Enum, JSON, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,8 +18,8 @@ class UsageLog(Base):
     )
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     remaining_after: Mapped[int] = mapped_column(Integer, nullable=False)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
-    client_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    metadata_: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
+    client_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )

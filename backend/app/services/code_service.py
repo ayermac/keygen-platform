@@ -1,9 +1,21 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import (
+    CodeNotFound,
+    CodeAlreadyRedeemed,
+    CodeExpired,
+    CodeDisabled,
+    ProductMismatch,
+    CodeNotActivated,
+    InsufficientCredits,
+    SystemBusy,
+)
 from app.models.redemption_code import RedemptionCode
 from app.models.usage_log import UsageLog
 from app.models.product import Product
@@ -24,19 +36,23 @@ async def redeem_code(
     redemption_code = result.scalar_one_or_none()
 
     if not redemption_code:
-        raise Exception("兑换码不存在")
+        raise CodeNotFound()
     if redemption_code.category_id != product.id:
-        raise Exception("兑换码不属于该产品")
+        raise ProductMismatch()
     if redemption_code.status == "activated":
-        raise Exception("兑换码已兑换")
+        raise CodeAlreadyRedeemed()
     if redemption_code.status == "disabled":
-        raise Exception("兑换码已禁用")
+        raise CodeDisabled()
     if redemption_code.status == "expired":
-        raise Exception("兑换码已过期")
+        raise CodeExpired()
 
     now = datetime.now(timezone.utc)
     expires_at = None
-    effective_expiry_days = redemption_code.expiry_days if redemption_code.expiry_days is not None else product.expiry_days
+    effective_expiry_days = (
+        redemption_code.expiry_days
+        if redemption_code.expiry_days is not None
+        else product.expiry_days
+    )
     if effective_expiry_days:
         expires_at = now + timedelta(days=effective_expiry_days)
 
@@ -75,6 +91,22 @@ async def redeem_code(
     }
 
 
+# Lua script for atomic check-and-decrement in Redis
+CONSUME_LUA = """
+local key = KEYS[1]
+local amount = tonumber(ARGV[1])
+local remaining = tonumber(redis.call('HGET', key, 'remaining_score') or '-1')
+if remaining < 0 then
+    return -1
+end
+if remaining < amount then
+    return -2
+end
+redis.call('HINCRBY', key, 'remaining_score', -amount)
+return remaining - amount
+"""
+
+
 async def consume_credits(
     db: AsyncSession,
     redis_client: Any,
@@ -93,13 +125,17 @@ async def consume_credits(
         )
         redemption_code = result.scalar_one_or_none()
         if not redemption_code:
-            raise Exception("兑换码不存在")
+            raise CodeNotFound()
         if redemption_code.status != "activated":
-            raise Exception("兑换码未兑换或已过期")
+            raise CodeNotActivated()
         cache = {
             "status": redemption_code.status,
             "remaining_score": str(redemption_code.remaining_score),
-            "expires_at": redemption_code.expires_at.isoformat() if redemption_code.expires_at else "",
+            "expires_at": (
+                redemption_code.expires_at.isoformat()
+                if redemption_code.expires_at
+                else ""
+            ),
         }
         await redis_client.hset(f"key:{code}", mapping=cache)
         await redis_client.expire(f"key:{code}", 1800)
@@ -107,22 +143,24 @@ async def consume_credits(
     if cache.get("expires_at"):
         expires_at = datetime.fromisoformat(cache["expires_at"])
         if datetime.now(timezone.utc) > expires_at:
-            raise Exception("兑换码已过期")
+            raise CodeExpired()
 
-    remaining = int(cache.get("remaining_score", 0))
-    if remaining < amount:
-        raise Exception("额度不足")
-
-    # Atomic decrement with lock
+    # Atomic check-and-decrement via Lua script
     lock_key = f"lock:key:{code}"
     acquired = await redis_client.set(lock_key, "1", nx=True, ex=5)
     if not acquired:
-        raise Exception("系统繁忙，请稍后重试")
+        raise SystemBusy()
 
     try:
-        new_remaining = await redis_client.hincrby(f"key:{code}", "remaining_score", -amount)
+        new_remaining = await redis_client.eval(
+            CONSUME_LUA, 1, f"key:{code}", amount
+        )
+        if new_remaining == -1:
+            raise CodeNotFound()
+        if new_remaining == -2:
+            raise InsufficientCredits()
 
-        # Async write to MySQL
+        # Write to MySQL
         result = await db.execute(
             select(RedemptionCode).where(RedemptionCode.key_code == code)
         )
@@ -161,15 +199,19 @@ async def get_balance(
         )
         redemption_code = result.scalar_one_or_none()
         if not redemption_code:
-            raise Exception("兑换码不存在")
+            raise CodeNotFound()
         if redemption_code.category_id != product.id:
-            raise Exception("兑换码不属于该产品")
+            raise ProductMismatch()
 
         cache = {
             "status": redemption_code.status,
             "total_score": str(redemption_code.total_score),
             "remaining_score": str(redemption_code.remaining_score),
-            "expires_at": redemption_code.expires_at.isoformat() if redemption_code.expires_at else "",
+            "expires_at": (
+                redemption_code.expires_at.isoformat()
+                if redemption_code.expires_at
+                else ""
+            ),
         }
         await redis_client.hset(f"key:{code}", mapping=cache)
         await redis_client.expire(f"key:{code}", 1800)

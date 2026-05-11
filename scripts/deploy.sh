@@ -92,8 +92,13 @@ fi
 # 4. Build and deploy
 # ----------------------------------------------------------
 log "Building and deploying services..."
-docker compose build --no-cache backend frontend
-docker compose up -d --remove-orphans
+COMPOSE_FILE="docker-compose.prod.yml"
+if [ ! -f "$COMPOSE_FILE" ]; then
+  COMPOSE_FILE="docker-compose.yml"
+  warn "docker-compose.prod.yml not found, falling back to docker-compose.yml"
+fi
+docker compose -f "$COMPOSE_FILE" build --no-cache backend frontend
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
 # ----------------------------------------------------------
 # 5. Wait for health check

@@ -1,21 +1,22 @@
-from fastapi import APIRouter, Depends
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.exceptions import ProductNotFound, InvalidGenerateCount, CodeNotFound
 from app.middleware.jwt_auth import get_current_admin
 from app.models.redemption_code import RedemptionCode
-from app.models.usage_log import UsageLog
 from app.models.admin_user import AdminUser
 from app.models.product import Product
 from app.schemas.code import (
     CodeGenerateRequest,
-    CodeGenerateResponse,
     CodeItem,
     CodeSearchRequest,
-    CodeSearchResponse,
 )
 from app.services.code_service import generate_codes
+from app.utils.audit import write_audit
 from app.utils.response import success, error
 
 router = APIRouter(prefix="/api/v1/admin/codes", tags=["管理后台-兑换码"])
@@ -24,18 +25,23 @@ router = APIRouter(prefix="/api/v1/admin/codes", tags=["管理后台-兑换码"]
 @router.post("/generate")
 async def generate(
     req: CodeGenerateRequest,
+    request: Request,
     admin: AdminUser = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Product).where(Product.id == req.product_id))
     product = result.scalar_one_or_none()
     if not product:
-        return error(1302, "产品不存在")
+        return error(ProductNotFound.code, ProductNotFound.message)
 
     if req.count < 1 or req.count > 10000:
-        return error(1401, "生成数量需在 1-10000 之间")
+        return error(InvalidGenerateCount.code, InvalidGenerateCount.message)
 
     batch_id, codes = await generate_codes(db, product, req.count, req.batch_id, req.card_type)
+
+    client_ip = request.client.host if request.client else "unknown"
+    await write_audit(db, admin_id=admin.id, action="generate_codes", target_type="product", target_id=product.id, detail={"batch_id": batch_id, "count": len(codes)}, client_ip=client_ip)
+
     return success({"batch_id": batch_id, "count": len(codes), "codes": codes})
 
 
@@ -67,12 +73,10 @@ async def search_codes(
     if req.code:
         query = query.where(RedemptionCode.key_code.contains(req.code))
 
-    # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar()
 
-    # Paginate
     offset = (req.page - 1) * req.page_size
     query = query.order_by(RedemptionCode.id.desc()).offset(offset).limit(req.page_size)
     result = await db.execute(query)
@@ -100,13 +104,22 @@ async def search_codes(
 @router.put("/{code_id}/disable")
 async def disable_code(
     code_id: int,
+    request: Request,
     admin: AdminUser = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(RedemptionCode).where(RedemptionCode.id == code_id))
     code = result.scalar_one_or_none()
     if not code:
-        return error(1001, "兑换码不存在")
+        return error(CodeNotFound.code, CodeNotFound.message)
 
     code.status = "disabled"
+
+    # Invalidate Redis cache
+    from app.redis_client import redis_client
+    await redis_client.delete(f"key:{code.key_code}")
+
+    client_ip = request.client.host if request.client else "unknown"
+    await write_audit(db, admin_id=admin.id, action="disable_code", target_type="code", target_id=code.id, detail={"key_code": code.key_code}, client_ip=client_ip)
+
     return success(None)

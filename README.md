@@ -372,11 +372,17 @@ keygen-platform/
 │   │   │   └── jwt_auth.py      # JWT + bcrypt
 │   │   ├── utils/               # Utilities
 │   │   │   ├── key_generator.py # Code generation (XXXX-XXXX-XXXX-XXXX)
-│   │   │   └── response.py      # Standardized API responses
+│   │   │   ├── response.py      # Standardized API responses
+│   │   │   └── audit.py         # Audit log writer
+│   │   ├── exceptions.py        # Business exception hierarchy
 │   │   ├── config.py            # Pydantic Settings
 │   │   ├── database.py          # Async SQLAlchemy engine
 │   │   ├── redis_client.py      # Async Redis client
 │   │   └── main.py              # FastAPI app entry
+│   ├── alembic/                 # Database migrations
+│   │   ├── versions/            # Migration scripts
+│   │   └── env.py               # Async-aware Alembic config
+│   ├── alembic.ini
 │   ├── tests/
 │   └── requirements.txt
 ├── frontend/
@@ -410,6 +416,57 @@ keygen-platform/
 ├── .env.example
 └── .gitignore
 ```
+
+## Database Migrations
+
+Uses Alembic for schema migrations:
+
+```bash
+# Generate a new migration after model changes
+cd backend
+alembic revision --autogenerate -m "description"
+
+# Apply pending migrations
+alembic upgrade head
+
+# Rollback one revision
+alembic downgrade -1
+```
+
+The initial migration captures the full schema. Always generate a new migration after changing models.
+
+## Security
+
+| Feature | Description |
+|---------|-------------|
+| **Startup validation** | Refuses to start if `JWT_SECRET_KEY`, `MYSQL_PASSWORD`, or `ADMIN_DEFAULT_PASSWORD` are defaults in production |
+| **Login rate limiting** | 5 attempts per IP per 60s window via Redis counter |
+| **API key rotation** | `POST /api/v1/admin/products/{id}/rotate-key` invalidates old key and all related Redis caches |
+| **Redis Lua atomic consume** | Credit deduction uses a Lua script to prevent race conditions |
+| **Audit logging** | All admin mutations (create/update/delete product, generate/disable codes, login) are recorded |
+| **Nginx security headers** | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy` |
+| **Request ID tracing** | Every request gets a `X-Request-ID` header for log correlation |
+
+## Error Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1001 | Code not found |
+| 1002 | Already redeemed |
+| 1003 | Expired |
+| 1004 | Disabled |
+| 1005 | Product mismatch |
+| 1101 | Consume failed |
+| 1102 | Insufficient credits |
+| 1103 | System busy (retry) |
+| 1104 | Code not activated |
+| 1201 | Login failed |
+| 1301 | Product code exists |
+| 1302 | Product not found |
+| 1303 | Product has codes |
+| 1401 | Invalid generate count |
+| 1501 | Invalid API key |
 
 ## Development
 

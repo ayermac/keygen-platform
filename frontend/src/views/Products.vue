@@ -38,10 +38,15 @@
             <span class="time-text">{{ row.created_at }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <div class="action-cell">
               <el-button type="primary" :icon="Edit" circle size="small" @click="showEdit(row)" />
+              <el-popconfirm title="轮换后旧密钥立即失效，确定继续？" @confirm="handleRotate(row.id)">
+                <template #reference>
+                  <el-button type="warning" :icon="RefreshRight" circle size="small" />
+                </template>
+              </el-popconfirm>
               <el-popconfirm title="确定删除该产品？" @confirm="handleDelete(row.id)">
                 <template #reference>
                   <el-button type="danger" :icon="Delete" circle size="small" />
@@ -94,20 +99,36 @@
         <el-button type="primary" @click="handleSubmit">{{ isEdit ? '更新' : '创建' }}</el-button>
       </template>
     </el-dialog>
+
+    <!-- Rotate Key Result Dialog -->
+    <el-dialog v-model="rotateDialogVisible" title="密钥已轮换" width="480px">
+      <div class="rotate-result">
+        <p>新密钥如下，请立即复制保存，关闭后无法再次查看：</p>
+        <div class="new-key-display">
+          <code>{{ newApiKey }}</code>
+          <el-button type="primary" size="small" plain @click="copyApiKey(newApiKey)">
+            <el-icon><CopyDocument /></el-icon>
+            复制
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Edit, Delete } from '@element-plus/icons-vue'
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../api/products'
+import { Edit, Delete, RefreshRight } from '@element-plus/icons-vue'
+import { getProducts, createProduct, updateProduct, deleteProduct, rotateProductKey } from '../api/products'
 
 const products = ref<any[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(0)
 const formRef = ref()
+const rotateDialogVisible = ref(false)
+const newApiKey = ref('')
 
 const form = reactive({
   name: '',
@@ -164,6 +185,13 @@ async function handleSubmit() {
 async function handleDelete(id: number) {
   await deleteProduct(id)
   ElMessage.success('删除成功')
+  loadProducts()
+}
+
+async function handleRotate(id: number) {
+  const res: any = await rotateProductKey(id)
+  newApiKey.value = res.data.api_key
+  rotateDialogVisible.value = true
   loadProducts()
 }
 
@@ -234,5 +262,28 @@ onMounted(loadProducts)
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.rotate-result p {
+  margin-bottom: 12px;
+  color: var(--kg-text-secondary);
+  font-size: 14px;
+}
+
+.new-key-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--kg-bg);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--kg-border);
+}
+
+.new-key-display code {
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  word-break: break-all;
 }
 </style>

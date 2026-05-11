@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List, Optional
 
 from sqlalchemy import BigInteger, String, Integer, DateTime, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,9 +16,9 @@ class Product(Base):
     score_per_key: Mapped[int] = mapped_column(Integer, nullable=False)
     score_label: Mapped[str] = mapped_column(String(50), nullable=False, default="积分")
     max_activations: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    expiry_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expiry_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     api_key: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
-    card_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    card_types: Mapped[Optional[List]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )

@@ -1,17 +1,17 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.exceptions import BizError
 from app.middleware.api_key_auth import get_category_by_api_key
 from app.models.product import Product
 from app.redis_client import get_redis
 from app.schemas.code import (
     RedeemRequest,
-    RedeemResponse,
     BalanceRequest,
-    BalanceResponse,
     ConsumeRequest,
-    ConsumeResponse,
 )
 from app.services.code_service import redeem_code, consume_credits, get_balance
 from app.utils.response import success, error
@@ -38,16 +38,8 @@ async def redeem(
             metadata=req.metadata,
         )
         return success(result)
-    except Exception as e:
-        code = 1001
-        msg = str(e)
-        if "已兑换" in msg:
-            code = 1002
-        elif "已过期" in msg:
-            code = 1003
-        elif "已禁用" in msg:
-            code = 1004
-        return error(code, msg)
+    except BizError as e:
+        return error(e.code, e.message)
 
 
 @router.post("/consume")
@@ -70,14 +62,8 @@ async def consume(
             metadata=req.metadata,
         )
         return success(result)
-    except Exception as e:
-        code = 1101
-        msg = str(e)
-        if "额度不足" in msg:
-            code = 1102
-        elif "繁忙" in msg:
-            code = 1103
-        return error(code, msg)
+    except BizError as e:
+        return error(e.code, e.message)
 
 
 @router.post("/balance")
@@ -99,5 +85,5 @@ async def balance(
             metadata=req.metadata,
         )
         return success(result)
-    except Exception as e:
-        return error(1001, str(e))
+    except BizError as e:
+        return error(e.code, e.message)

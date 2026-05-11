@@ -15,3 +15,7 @@ export function updateProduct(id: number, data: any) {
 export function deleteProduct(id: number) {
   return request.delete(`/admin/products/${id}`)
 }
+
+export function rotateProductKey(id: number) {
+  return request.post(`/admin/products/${id}/rotate-key`)
+}
